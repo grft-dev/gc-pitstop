@@ -1,0 +1,9 @@
+services:
+  pitstop-grafthost:
+    image: pitstop/grafthost:1.0
+    build: Pitstop.GraftHost
+    ports:
+      - "8090:80"
+      - "8091:81"
+    environment:
+      - GG_PROJECT_KEY=${GG_PROJECT_KEY:-}

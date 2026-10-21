@@ -14,7 +14,6 @@ builder.Services.AddTransient<IEventSourceRepository<WorkshopPlanning>>((sp) =>
 
 var workshopManagementConnectionString = builder.Configuration.GetConnectionString("WorkshopManagementCN");
 builder.Services.AddTransient<IVehicleRepository>((sp) => new SqlServerRefDataRepository(workshopManagementConnectionString));
-builder.Services.AddTransient<ICustomerRepository>((sp) => new SqlServerRefDataRepository(workshopManagementConnectionString));
 
 // add messagepublisher
 builder.Services.UseRabbitMQMessagePublisher(builder.Configuration);

@@ -20,6 +20,8 @@ See [the Wiki for this repository](https://github.com/EdwinVW/pitstop/wiki "Pits
 
 Also see the [Arc42 architecture documentation](docs/arc42/arc42.md) in the `docs` folder for more information on the application's architecture.
 
+For the GG-hosted Docker setup and full Graft e2e runbook, see [GRAFTCODE.md](GRAFTCODE.md).
+
 ![](pitstop-garage.png)
 
 > This is an actual garage somewhere in Dresden Germany. Thanks to Thomas Moerkerken for the picture!

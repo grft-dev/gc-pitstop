@@ -12,15 +12,19 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.AspNetCore.HealthChecks" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
-    <PackageReference Include="Pitstop.Infrastructure.Messaging" />
     <PackageReference Include="Serilog.Enrichers.Environment" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.Seq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Infrastructure.Messaging\Infrastructure.Messaging.csproj" />
   </ItemGroup>
 
 </Project>

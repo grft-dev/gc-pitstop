@@ -11,3 +11,4 @@ global using System.Net;
 global using Serilog;
 global using Polly;
 global using Refit;
+global using Microsoft.Data.SqlClient;

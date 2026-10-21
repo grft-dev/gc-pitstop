@@ -19,7 +19,7 @@ builder.Services
 builder.Services.AddHealthChecks();
 
 // add custom services
-builder.Services.AddHttpClient<ICustomerManagementAPI, CustomerManagementAPI>();
+builder.Services.AddScoped<ICustomerManagementAPI, CustomerManagementAPI>();
 builder.Services.AddHttpClient<IVehicleManagementAPI, VehicleManagementAPI>();
 builder.Services.AddHttpClient<IWorkshopManagementAPI, WorkshopManagementAPI>();
 
