@@ -54,12 +54,15 @@ public class CustomerManagementAPI : ICustomerManagementAPI
         return new Customer
         {
             CustomerId = reader.GetString(0),
-            Name = reader.GetString(1),
-            Address = reader.GetString(2),
-            PostalCode = reader.GetString(3),
-            City = reader.GetString(4),
-            TelephoneNumber = reader.GetString(5),
-            EmailAddress = reader.GetString(6)
+            Name = ReadOptionalString(reader, 1),
+            Address = ReadOptionalString(reader, 2),
+            PostalCode = ReadOptionalString(reader, 3),
+            City = ReadOptionalString(reader, 4),
+            TelephoneNumber = ReadOptionalString(reader, 5),
+            EmailAddress = ReadOptionalString(reader, 6)
         };
     }
+
+    private static string ReadOptionalString(SqlDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 }
