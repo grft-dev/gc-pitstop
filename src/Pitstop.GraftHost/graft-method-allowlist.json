@@ -1,4 +1,10 @@
 {
-  "module": "Pitstop.GraftHost.dll",
-  "methods": []
+  "module": "Pitstop.WorkshopManagementAPI.dll",
+  "publicApiType": "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService",
+  "methods": [
+    "GetCustomersAsync",
+    "GetCustomerByIdAsync",
+    "GetVehiclesAsync",
+    "GetVehicleByLicenseNumberAsync"
+  ]
 }

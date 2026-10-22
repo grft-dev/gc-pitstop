@@ -1,9 +1,50 @@
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pitstop-graft-sqlserver
+    ports:
+      - "1434:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Developer
+      - MSSQL_SA_PASSWORD=8jkGh47hnDw89H@q8LN2
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"8jkGh47hnDw89H@q8LN2\" -C -Q \"SELECT 1\" || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  db-seed:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: pitstop-graft-db-seed
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -Q "IF DB_ID('CustomerManagement') IS NULL CREATE DATABASE CustomerManagement;"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -Q "IF DB_ID('WorkshopManagement') IS NULL CREATE DATABASE WorkshopManagement;"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d CustomerManagement -Q "IF OBJECT_ID('Customer','U') IS NULL CREATE TABLE Customer (CustomerId nvarchar(50) NOT NULL PRIMARY KEY, Name nvarchar(200) NULL, Address nvarchar(200) NULL, PostalCode nvarchar(20) NULL, City nvarchar(100) NULL, TelephoneNumber nvarchar(30) NULL, EmailAddress nvarchar(200) NULL);"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d WorkshopManagement -Q "IF OBJECT_ID('Vehicle','U') IS NULL CREATE TABLE Vehicle (LicenseNumber nvarchar(50) NOT NULL PRIMARY KEY, Brand nvarchar(100) NULL, [Type] nvarchar(100) NULL, OwnerId nvarchar(50) NULL);"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d CustomerManagement -Q "IF NOT EXISTS (SELECT 1 FROM Customer WHERE CustomerId='CUST-100') INSERT INTO Customer (CustomerId,Name,Address,PostalCode,City,TelephoneNumber,EmailAddress) VALUES ('CUST-100','John Smith','Main St 1','10000','Metropolis','+15551234567','john.smith@example.com');"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d CustomerManagement -Q "IF NOT EXISTS (SELECT 1 FROM Customer WHERE CustomerId='CUST-200') INSERT INTO Customer (CustomerId,Name,Address,PostalCode,City,TelephoneNumber,EmailAddress) VALUES ('CUST-200','Jane Doe','Second St 2','20000','Gotham','+15559876543','jane.doe@example.com');"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d WorkshopManagement -Q "IF NOT EXISTS (SELECT 1 FROM Vehicle WHERE LicenseNumber='WA1234A') INSERT INTO Vehicle (LicenseNumber,Brand,[Type],OwnerId) VALUES ('WA1234A','Skoda','Octavia','CUST-100');"
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "8jkGh47hnDw89H@q8LN2" -d WorkshopManagement -Q "IF NOT EXISTS (SELECT 1 FROM Vehicle WHERE LicenseNumber='KR7788P') INSERT INTO Vehicle (LicenseNumber,Brand,[Type],OwnerId) VALUES ('KR7788P','Toyota','Corolla','CUST-200');"
+    restart: "no"
+
   pitstop-grafthost:
     image: pitstop/grafthost:1.0
-    build: Pitstop.GraftHost
+    build:
+      context: .
+      dockerfile: Pitstop.GraftHost/Dockerfile
+    depends_on:
+      db-seed:
+        condition: service_completed_successfully
     ports:
       - "8090:80"
       - "8091:81"
     environment:
-      - GG_PROJECT_KEY=${GG_PROJECT_KEY:-}
+      - CUSTOMER_MANAGEMENT_CN=server=sqlserver,1433;user id=sa;password=8jkGh47hnDw89H@q8LN2;database=CustomerManagement;trustServerCertificate=true;
+      - WORKSHOP_MANAGEMENT_CN=server=sqlserver,1433;user id=sa;password=8jkGh47hnDw89H@q8LN2;database=WorkshopManagement;trustServerCertificate=true;

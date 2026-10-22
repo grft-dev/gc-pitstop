@@ -46,12 +46,12 @@ Major removed components in migrated scope:
 
 ## 10.3 Graftcode Integration
 
-Interim service-surface exposure in migrated slice (later removed during cleanup):
+Service-surface exposure in migrated slice:
 
-- `src/CustomerManagementAPI/Services/CustomerManagementService.cs` (removed)
+- `src/CustomerManagementAPI/Services/CustomerManagementService.cs`
   - `GetCustomersAsync()`
   - `GetCustomerByIdAsync(string customerId)`
-- `src/WorkshopManagementAPI/Services/WorkshopRefDataService.cs` (removed)
+- `src/WorkshopManagementAPI/Services/WorkshopRefDataService.cs`
   - `GetCustomersAsync()`
   - `GetCustomerByIdAsync(string customerId)`
   - `GetVehiclesAsync()`
@@ -59,7 +59,8 @@ Interim service-surface exposure in migrated slice (later removed during cleanup
 
 Dependency injection and initialization changes:
 
-- Temporary DI registrations were added for `CustomerManagementService` and `WorkshopRefDataService` and later removed in cleanup.
+- `CustomerManagementService` and `WorkshopRefDataService` remain available as service classes in source.
+- DI registrations for these two wrappers are currently disabled in runtime startup.
 - `WebApp` customer/vehicle read clients were adapted to SQL-backed calls for the migrated read path, preserving user-facing behavior for the selected slice.
 
 Authentication and authorization:
@@ -77,13 +78,13 @@ Important limitation:
 
 | Original REST Endpoint | HTTP Method | Graftcode Service | Graftcode Method | Status |
 | ---------------------- | ----------- | ----------------- | ---------------- | ------ |
-| `/api/customers` | GET | Interim wrapper (removed) | `GetCustomersAsync` | Migrated read path preserved |
-| `/api/customers/{customerId}` | GET | Interim wrapper (removed) | `GetCustomerByIdAsync` | Migrated read path preserved |
+| `/api/customers` | GET | `CustomerManagementService` | `GetCustomersAsync` | Migrated read path preserved |
+| `/api/customers/{customerId}` | GET | `CustomerManagementService` | `GetCustomerByIdAsync` | Migrated read path preserved |
 | `/api/customers` | POST | n/a | n/a | Omitted (unsupported queue-dependent path in selected scope) |
-| `/api/refdata/customers` | GET | Interim wrapper (removed) | `GetCustomersAsync` | Migrated read path preserved |
-| `/api/refdata/customers/{customerId}` | GET | Interim wrapper (removed) | `GetCustomerByIdAsync` | Migrated read path preserved |
-| `/api/refdata/vehicles` | GET | Interim wrapper (removed) | `GetVehiclesAsync` | Migrated read path preserved |
-| `/api/refdata/vehicles/{licenseNumber}` | GET | Interim wrapper (removed) | `GetVehicleByLicenseNumberAsync` | Migrated read path preserved |
+| `/api/refdata/customers` | GET | `WorkshopRefDataService` | `GetCustomersAsync` | Migrated read path preserved |
+| `/api/refdata/customers/{customerId}` | GET | `WorkshopRefDataService` | `GetCustomerByIdAsync` | Migrated read path preserved |
+| `/api/refdata/vehicles` | GET | `WorkshopRefDataService` | `GetVehiclesAsync` | Migrated read path preserved |
+| `/api/refdata/vehicles/{licenseNumber}` | GET | `WorkshopRefDataService` | `GetVehicleByLicenseNumberAsync` | Migrated read path preserved |
 
 ## 10.5 Methods That Must Not Be Exposed Through Graftcode
 
@@ -173,7 +174,7 @@ Additional counts:
 2. Removed because unsupported functionality was omitted:
    - Queue/event-driven registration path (`POST /api/customers` event publish flow)
 3. Added for migrated architecture:
-   - Temporary wrapper services (later removed during cleanup)
+   - Wrapper services for migrated read-path operations
    - Wiring/configuration required for read-path continuity
 
 ### REST Infrastructure Reduction

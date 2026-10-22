@@ -1,6 +1,9 @@
 ﻿namespace Pitstop.WorkshopManagementAPI.Repositories;
 
+using Dapper;
+using Microsoft.Data.SqlClient;
 using Pitstop.WorkshopManagementAPI.Repositories.Model;
+using System.Runtime.ExceptionServices;
 
 public class SqlServerRefDataRepository : IVehicleRepository
 {
