@@ -12,7 +12,7 @@ RUN impl="$(find /usr/src/publish/runtimes/unix/lib -name Microsoft.Data.SqlClie
  && test -n "$impl" \
  && cp "$impl" /usr/src/publish/Microsoft.Data.SqlClient.dll
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /usr/app
 
 RUN apt-get update && \
