@@ -1,10 +1,25 @@
 {
   "module": "Pitstop.WorkshopManagementAPI.dll",
-  "publicApiType": "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService",
-  "methods": [
-    "GetCustomersAsync",
-    "GetCustomerByIdAsync",
-    "GetVehiclesAsync",
-    "GetVehicleByLicenseNumberAsync"
+  "types": [
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService",
+      "methods": [
+        "GetCustomersAsync",
+        "GetCustomerByIdAsync",
+        "GetVehiclesAsync",
+        "GetVehicleByLicenseNumberAsync"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.Services.WorkshopOperationsService",
+      "methods": [
+        "RegisterCustomerAsync",
+        "RegisterVehicleAsync",
+        "PlanMaintenanceJobAsync",
+        "FinishMaintenanceJobAsync",
+        "GetPlanningByDateAsync",
+        "GetMaintenanceJobAsync"
+      ]
+    }
   ]
 }

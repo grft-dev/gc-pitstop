@@ -34,4 +34,4 @@ USER appuser
 EXPOSE 80
 EXPOSE 81
 
-CMD ["gg", "--modules", "Pitstop.WorkshopManagementAPI.dll", "--types", "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService", "--methods", "GetCustomersAsync,GetCustomerByIdAsync,GetVehiclesAsync,GetVehicleByLicenseNumberAsync"]
+CMD ["gg", "--modules", "Pitstop.WorkshopManagementAPI.dll", "--types", "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService,Pitstop.WorkshopManagementAPI.Services.WorkshopOperationsService", "--methods", "GetCustomersAsync,GetCustomerByIdAsync,GetVehiclesAsync,GetVehicleByLicenseNumberAsync,RegisterCustomerAsync,RegisterVehicleAsync,PlanMaintenanceJobAsync,FinishMaintenanceJobAsync,GetPlanningByDateAsync,GetMaintenanceJobAsync"]
