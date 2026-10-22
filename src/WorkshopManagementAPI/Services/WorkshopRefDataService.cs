@@ -10,7 +10,7 @@ public static class WorkshopRefDataService
 {
     // Graftcode-facing method replacing GET /api/refdata/customers.
     // Keep primitive wire types for stable GG client code generation.
-    public static string[] GetCustomersAsync() =>
+    public static string[] GetCustomers() =>
         Run(async () =>
         {
             var customers = await QueryCustomersAsync();
@@ -20,7 +20,7 @@ public static class WorkshopRefDataService
         });
 
     // Graftcode-facing method replacing GET /api/refdata/customers/{customerId}.
-    public static string GetCustomerByIdAsync(string customerId) =>
+    public static string GetCustomerById(string customerId) =>
         Run(async () =>
         {
             var customer = await QueryCustomerByIdAsync(customerId);
@@ -30,7 +30,7 @@ public static class WorkshopRefDataService
         });
 
     // Graftcode-facing method replacing GET /api/refdata/vehicles.
-    public static string[] GetVehiclesAsync() =>
+    public static string[] GetVehicles() =>
         Run(async () =>
         {
             var vehicles = await QueryVehiclesAsync();
@@ -40,7 +40,7 @@ public static class WorkshopRefDataService
         });
 
     // Graftcode-facing method replacing GET /api/refdata/vehicles/{licenseNumber}.
-    public static string GetVehicleByLicenseNumberAsync(string licenseNumber) =>
+    public static string GetVehicleByLicenseNumber(string licenseNumber) =>
         Run(async () =>
         {
             var vehicle = await QueryVehicleByLicenseNumberAsync(licenseNumber);

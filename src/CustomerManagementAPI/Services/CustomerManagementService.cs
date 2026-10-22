@@ -1,48 +1,70 @@
+using Dapper;
+using Microsoft.Data.SqlClient;
+
 namespace Pitstop.CustomerManagementAPI.Services;
 
-public class CustomerManagementService
+public static class CustomerManagementService
 {
-    private readonly CustomerManagementDBContext _dbContext;
-
-    public CustomerManagementService()
-        : this(CreateDbContextFromEnvironment())
-    {
-    }
-
-    public CustomerManagementService(CustomerManagementDBContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
-
     // Graftcode-facing method replacing GET /api/customers.
-    public List<Customer> GetCustomersAsync()
-    {
-        return GetCustomersCoreAsync().GetAwaiter().GetResult();
-    }
+    public static string[] GetCustomers() =>
+        Run(async () =>
+        {
+            var customers = await QueryCustomersAsync();
+            return customers.Select(FormatCustomer).ToArray();
+        });
 
     // Graftcode-facing method replacing GET /api/customers/{customerId}.
-    public Customer GetCustomerByIdAsync(string customerId)
+    public static string GetCustomerById(string customerId) =>
+        Run(async () =>
+        {
+            var customer = await QueryCustomerByIdAsync(customerId);
+            return customer == null ? string.Empty : FormatCustomer(customer);
+        });
+
+    private static T Run<T>(Func<Task<T>> func) =>
+        Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    private static async Task<IEnumerable<Customer>> QueryCustomersAsync()
     {
-        return GetCustomerByIdCoreAsync(customerId).GetAwaiter().GetResult();
+        using var conn = new SqlConnection(Required("CUSTOMER_MANAGEMENT_CN"));
+        var customers = await conn.QueryAsync<Customer>(
+            """
+            select CustomerId, Name, Address, PostalCode, City, TelephoneNumber, EmailAddress
+            from Customer
+            """);
+        return customers ?? [];
     }
 
-    private async Task<List<Customer>> GetCustomersCoreAsync() =>
-        await _dbContext.Customers.ToListAsync();
-
-    private async Task<Customer> GetCustomerByIdCoreAsync(string customerId) =>
-        await _dbContext.Customers.FirstOrDefaultAsync(c => c.CustomerId == customerId);
-
-    private static CustomerManagementDBContext CreateDbContextFromEnvironment()
+    private static async Task<Customer> QueryCustomerByIdAsync(string customerId)
     {
-        var connectionString = Environment.GetEnvironmentVariable("CUSTOMER_MANAGEMENT_CN");
-        if (string.IsNullOrWhiteSpace(connectionString))
+        using var conn = new SqlConnection(Required("CUSTOMER_MANAGEMENT_CN"));
+        return await conn.QueryFirstOrDefaultAsync<Customer>(
+            """
+            select CustomerId, Name, Address, PostalCode, City, TelephoneNumber, EmailAddress
+            from Customer
+            where CustomerId = @CustomerId
+            """,
+            new { CustomerId = customerId });
+    }
+
+    private static string FormatCustomer(Customer customer) =>
+        string.Join('|',
+            customer.CustomerId ?? string.Empty,
+            customer.Name ?? string.Empty,
+            customer.Address ?? string.Empty,
+            customer.PostalCode ?? string.Empty,
+            customer.City ?? string.Empty,
+            customer.TelephoneNumber ?? string.Empty,
+            customer.EmailAddress ?? string.Empty);
+
+    private static string Required(string key)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException("Missing CUSTOMER_MANAGEMENT_CN environment variable.");
+            throw new InvalidOperationException($"Missing {key} environment variable.");
         }
 
-        var options = new DbContextOptionsBuilder<CustomerManagementDBContext>()
-            .UseSqlServer(connectionString)
-            .Options;
-        return new CustomerManagementDBContext(options);
+        return value;
     }
 }

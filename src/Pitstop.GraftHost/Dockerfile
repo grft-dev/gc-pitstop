@@ -12,7 +12,7 @@ RUN impl="$(find /usr/src/publish/runtimes/unix/lib -name Microsoft.Data.SqlClie
  && test -n "$impl" \
  && cp "$impl" /usr/src/publish/Microsoft.Data.SqlClient.dll
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /usr/app
 
 RUN apt-get update && \
@@ -34,4 +34,4 @@ USER appuser
 EXPOSE 80
 EXPOSE 81
 
-CMD ["gg", "--modules", "Pitstop.WorkshopManagementAPI.dll", "--types", "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService,Pitstop.WorkshopManagementAPI.Services.WorkshopOperationsService", "--methods", "GetCustomersAsync,GetCustomerByIdAsync,GetVehiclesAsync,GetVehicleByLicenseNumberAsync,RegisterCustomerAsync,RegisterVehicleAsync,PlanMaintenanceJobAsync,FinishMaintenanceJobAsync,GetPlanningByDateAsync,GetMaintenanceJobAsync"]
+CMD ["gg", "--modules", "Pitstop.WorkshopManagementAPI.dll,Pitstop.CustomerManagementAPI.dll", "--types", "Pitstop.WorkshopManagementAPI.Services.WorkshopRefDataService,Pitstop.WorkshopManagementAPI.Services.WorkshopOperationsService,Pitstop.CustomerManagementAPI.Services.CustomerManagementService", "--methods", "GetCustomers,GetCustomerById,GetVehicles,GetVehicleByLicenseNumber,RegisterCustomer,RegisterVehicle,RegisterPlanning,PlanMaintenanceJob,FinishMaintenanceJob,GetPlanningByDate,GetMaintenanceJob"]

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CustomerManagementAPI\CustomerManagementAPI.csproj" />
     <ProjectReference Include="..\WorkshopManagementAPI\WorkshopManagementAPI.csproj" />
   </ItemGroup>
 

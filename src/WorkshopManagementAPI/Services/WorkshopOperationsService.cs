@@ -14,7 +14,7 @@ public static class WorkshopOperationsService
     private const string VehicleAlreadyBooked = "Only 1 maintenance job can be executed on a vehicle during a certain time-slot.";
     private const string JobAlreadyFinished = "An already finished job can not be finished.";
 
-    public static string RegisterCustomerAsync(
+    public static string RegisterCustomer(
         string customerId,
         string name,
         string address,
@@ -47,7 +47,7 @@ public static class WorkshopOperationsService
             return $"{customerId}|{name}|{telephoneNumber}";
         });
 
-    public static string RegisterVehicleAsync(string licenseNumber, string brand, string type, string ownerId) =>
+    public static string RegisterVehicle(string licenseNumber, string brand, string type, string ownerId) =>
         Run(async () =>
         {
             Require(licenseNumber, nameof(licenseNumber));
@@ -80,7 +80,28 @@ public static class WorkshopOperationsService
             return $"{licenseNumber}|{brand}|{type}|{ownerId}";
         });
 
-    public static string PlanMaintenanceJobAsync(
+    public static string RegisterPlanning(string planningDate) =>
+        Run(async () =>
+        {
+            var date = ParseTimestamp(planningDate, nameof(planningDate)).Date;
+            var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            using var conn = new SqlConnection(Required("WORKSHOP_MANAGEMENT_CN"));
+            var existing = await conn.QueryFirstOrDefaultAsync<DateTime?>(
+                "select PlanningDate from WorkshopPlanning where PlanningDate = @PlanningDate",
+                new { PlanningDate = date });
+            if (existing != null)
+            {
+                throw new InvalidOperationException(
+                    $"Workshop planning for '{dateText}' is already registered.");
+            }
+
+            await conn.ExecuteAsync(
+                "insert into WorkshopPlanning (PlanningDate) values (@PlanningDate)",
+                new { PlanningDate = date });
+            return dateText;
+        });
+
+    public static string PlanMaintenanceJob(
         string jobId,
         string customerId,
         string licenseNumber,
@@ -157,6 +178,13 @@ public static class WorkshopOperationsService
 
             await conn.ExecuteAsync(
                 """
+                if not exists (select 1 from WorkshopPlanning where PlanningDate = @PlanningDate)
+                    insert into WorkshopPlanning (PlanningDate) values (@PlanningDate)
+                """,
+                new { PlanningDate = start.Date });
+
+            await conn.ExecuteAsync(
+                """
                 insert into MaintenanceJob
                     (Id, CustomerId, VehicleLicenseNumber, StartTime, EndTime, Description, WorkshopPlanningDate)
                 values
@@ -167,7 +195,7 @@ public static class WorkshopOperationsService
             return FormatJob(planned);
         });
 
-    public static string FinishMaintenanceJobAsync(
+    public static string FinishMaintenanceJob(
         string jobId,
         string actualStartTime,
         string actualEndTime,
@@ -222,7 +250,7 @@ public static class WorkshopOperationsService
             return FormatJob(job);
         });
 
-    public static string[] GetPlanningByDateAsync(string planningDate) =>
+    public static string[] GetPlanningByDate(string planningDate) =>
         Run(async () =>
         {
             var date = ParseTimestamp(planningDate, nameof(planningDate)).Date;
@@ -239,7 +267,7 @@ public static class WorkshopOperationsService
             return jobs.Select(FormatJob).ToArray();
         });
 
-    public static string GetMaintenanceJobAsync(string jobId) =>
+    public static string GetMaintenanceJob(string jobId) =>
         Run(async () =>
         {
             if (!Guid.TryParse(jobId, out var parsedJobId))
