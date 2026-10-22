@@ -1,5 +1,4 @@
-using Dapper;
-using Microsoft.Data.SqlClient;
+using Pitstop.CustomerManagementAPI.Repositories;
 
 namespace Pitstop.CustomerManagementAPI.Services;
 
@@ -9,7 +8,7 @@ public static class CustomerManagementService
     public static string[] GetCustomers() =>
         Run(async () =>
         {
-            var customers = await QueryCustomersAsync();
+            var customers = await Repository().GetCustomersAsync();
             return customers.Select(FormatCustomer).ToArray();
         });
 
@@ -17,35 +16,15 @@ public static class CustomerManagementService
     public static string GetCustomerById(string customerId) =>
         Run(async () =>
         {
-            var customer = await QueryCustomerByIdAsync(customerId);
+            var customer = await Repository().GetCustomerByIdAsync(customerId);
             return customer == null ? string.Empty : FormatCustomer(customer);
         });
 
     private static T Run<T>(Func<Task<T>> func) =>
         Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
 
-    private static async Task<IEnumerable<Customer>> QueryCustomersAsync()
-    {
-        using var conn = new SqlConnection(Required("CUSTOMER_MANAGEMENT_CN"));
-        var customers = await conn.QueryAsync<Customer>(
-            """
-            select CustomerId, Name, Address, PostalCode, City, TelephoneNumber, EmailAddress
-            from Customer
-            """);
-        return customers ?? [];
-    }
-
-    private static async Task<Customer> QueryCustomerByIdAsync(string customerId)
-    {
-        using var conn = new SqlConnection(Required("CUSTOMER_MANAGEMENT_CN"));
-        return await conn.QueryFirstOrDefaultAsync<Customer>(
-            """
-            select CustomerId, Name, Address, PostalCode, City, TelephoneNumber, EmailAddress
-            from Customer
-            where CustomerId = @CustomerId
-            """,
-            new { CustomerId = customerId });
-    }
+    private static ICustomerRepository Repository() =>
+        new SqlServerCustomerRepository(Required("CUSTOMER_MANAGEMENT_CN"));
 
     private static string FormatCustomer(Customer customer) =>
         string.Join('|',

@@ -1,7 +1,3 @@
-using WorkshopCustomer = Pitstop.WorkshopManagementAPI.Repositories.Model.Customer;
-using WorkshopVehicle = Pitstop.WorkshopManagementAPI.Repositories.Model.Vehicle;
-using Dapper;
-using Microsoft.Data.SqlClient;
 using Pitstop.WorkshopManagementAPI.Repositories;
 
 namespace Pitstop.WorkshopManagementAPI.Services;
@@ -13,7 +9,7 @@ public static class WorkshopRefDataService
     public static string[] GetCustomers() =>
         Run(async () =>
         {
-            var customers = await QueryCustomersAsync();
+            var customers = await CustomerRepository().GetCustomersAsync();
             return customers
                 .Select(c => $"{c.CustomerId}|{c.Name}|{c.TelephoneNumber}")
                 .ToArray();
@@ -23,7 +19,7 @@ public static class WorkshopRefDataService
     public static string GetCustomerById(string customerId) =>
         Run(async () =>
         {
-            var customer = await QueryCustomerByIdAsync(customerId);
+            var customer = await CustomerRepository().GetCustomerByIdAsync(customerId);
             return customer == null
                 ? string.Empty
                 : $"{customer.CustomerId}|{customer.Name}|{customer.TelephoneNumber}";
@@ -33,7 +29,7 @@ public static class WorkshopRefDataService
     public static string[] GetVehicles() =>
         Run(async () =>
         {
-            var vehicles = await QueryVehiclesAsync();
+            var vehicles = await VehicleRepository().GetVehiclesAsync();
             return vehicles
                 .Select(v => $"{v.LicenseNumber}|{v.Brand}|{v.Type}|{v.OwnerId}")
                 .ToArray();
@@ -43,7 +39,7 @@ public static class WorkshopRefDataService
     public static string GetVehicleByLicenseNumber(string licenseNumber) =>
         Run(async () =>
         {
-            var vehicle = await QueryVehicleByLicenseNumberAsync(licenseNumber);
+            var vehicle = await VehicleRepository().GetVehicleAsync(licenseNumber);
             return vehicle == null
                 ? string.Empty
                 : $"{vehicle.LicenseNumber}|{vehicle.Brand}|{vehicle.Type}|{vehicle.OwnerId}";
@@ -52,33 +48,11 @@ public static class WorkshopRefDataService
     private static T Run<T>(Func<Task<T>> func) =>
         Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
 
-    private static async Task<IEnumerable<WorkshopCustomer>> QueryCustomersAsync()
-    {
-        using var conn = new SqlConnection(GetRequiredEnvironmentVariable("CUSTOMER_MANAGEMENT_CN"));
-        var customers = await conn.QueryAsync<WorkshopCustomer>(
-            "select CustomerId, Name, TelephoneNumber from Customer");
-        return customers ?? [];
-    }
+    private static ICustomerRefDataRepository CustomerRepository() =>
+        new SqlServerCustomerRefDataRepository(GetRequiredEnvironmentVariable("CUSTOMER_MANAGEMENT_CN"));
 
-    private static async Task<WorkshopCustomer> QueryCustomerByIdAsync(string customerId)
-    {
-        using var conn = new SqlConnection(GetRequiredEnvironmentVariable("CUSTOMER_MANAGEMENT_CN"));
-        return await conn.QueryFirstOrDefaultAsync<WorkshopCustomer>(
-            "select CustomerId, Name, TelephoneNumber from Customer where CustomerId = @CustomerId",
-            new { CustomerId = customerId });
-    }
-
-    private static async Task<IEnumerable<WorkshopVehicle>> QueryVehiclesAsync()
-    {
-        var repository = new SqlServerRefDataRepository(GetRequiredEnvironmentVariable("WORKSHOP_MANAGEMENT_CN"));
-        return await repository.GetVehiclesAsync();
-    }
-
-    private static async Task<WorkshopVehicle> QueryVehicleByLicenseNumberAsync(string licenseNumber)
-    {
-        var repository = new SqlServerRefDataRepository(GetRequiredEnvironmentVariable("WORKSHOP_MANAGEMENT_CN"));
-        return await repository.GetVehicleAsync(licenseNumber);
-    }
+    private static IVehicleRepository VehicleRepository() =>
+        new SqlServerRefDataRepository(GetRequiredEnvironmentVariable("WORKSHOP_MANAGEMENT_CN"));
 
     private static string GetRequiredEnvironmentVariable(string key)
     {
