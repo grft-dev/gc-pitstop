@@ -3,11 +3,15 @@
 public class WorkshopManagementAPI : IWorkshopManagementAPI
 {
     private IWorkshopManagementAPI _restClient;
+    private readonly ICustomerManagementAPI _customerManagementAPI;
+    private readonly string _workshopConnectionString;
 
-    public WorkshopManagementAPI(IConfiguration config, HttpClient httpClient)
+    public WorkshopManagementAPI(IConfiguration config, HttpClient httpClient, ICustomerManagementAPI customerManagementAPI)
     {
         string apiHostAndPort = config.GetSection("APIServiceLocations").GetValue<string>("WorkshopManagementAPI");
         httpClient.BaseAddress = new Uri($"http://{apiHostAndPort}/api");
+        _customerManagementAPI = customerManagementAPI;
+        _workshopConnectionString = config.GetConnectionString("WorkshopManagementCN");
         _restClient = RestService.For<IWorkshopManagementAPI>(
             httpClient,
             new RefitSettings
@@ -71,49 +75,56 @@ public class WorkshopManagementAPI : IWorkshopManagementAPI
 
     public async Task<List<Customer>> GetCustomers()
     {
-        return await _restClient.GetCustomers();
+        return await _customerManagementAPI.GetCustomers();
     }
 
     public async Task<Customer> GetCustomerById(string id)
     {
-        try
-        {
-            return await _restClient.GetCustomerById(id);
-        }
-        catch (ApiException ex)
-        {
-            if (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return null;
-            }
-            else
-            {
-                throw;
-            }
-        }
+        return await _customerManagementAPI.GetCustomerById(id);
     }
 
     public async Task<List<Vehicle>> GetVehicles()
     {
-        return await _restClient.GetVehicles();
+        var vehicles = new List<Vehicle>();
+        const string query = "select LicenseNumber, Brand, Type, OwnerId from Vehicle";
+
+        await using var conn = new SqlConnection(_workshopConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(query, conn);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            vehicles.Add(MapVehicle(reader));
+        }
+
+        return vehicles;
     }
 
     public async Task<Vehicle> GetVehicleByLicenseNumber([AliasAs("id")] string licenseNumber)
     {
-        try
+        const string query = "select LicenseNumber, Brand, Type, OwnerId from Vehicle where LicenseNumber = @LicenseNumber";
+
+        await using var conn = new SqlConnection(_workshopConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(query, conn);
+        cmd.Parameters.AddWithValue("@LicenseNumber", licenseNumber);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
         {
-            return await _restClient.GetVehicleByLicenseNumber(licenseNumber);
+            return null;
         }
-        catch (ApiException ex)
+
+        return MapVehicle(reader);
+    }
+
+    private static Vehicle MapVehicle(SqlDataReader reader)
+    {
+        return new Vehicle
         {
-            if (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return null;
-            }
-            else
-            {
-                throw;
-            }
-        }
+            LicenseNumber = reader.GetString(0),
+            Brand = reader.GetString(1),
+            Type = reader.GetString(2),
+            OwnerId = reader.IsDBNull(3) ? null : reader.GetString(3)
+        };
     }
 }

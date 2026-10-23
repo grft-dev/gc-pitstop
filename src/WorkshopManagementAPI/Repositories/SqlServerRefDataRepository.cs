@@ -1,8 +1,11 @@
 ﻿namespace Pitstop.WorkshopManagementAPI.Repositories;
 
+using Dapper;
+using Microsoft.Data.SqlClient;
 using Pitstop.WorkshopManagementAPI.Repositories.Model;
+using System.Runtime.ExceptionServices;
 
-public class SqlServerRefDataRepository : IVehicleRepository, ICustomerRepository
+public class SqlServerRefDataRepository : IVehicleRepository
 {
     private string _connectionString;
 
@@ -10,30 +13,6 @@ public class SqlServerRefDataRepository : IVehicleRepository, ICustomerRepositor
     {
         _connectionString = connectionString;
     }
-
-    public async Task<IEnumerable<Customer>> GetCustomersAsync()
-    {
-        List<Customer> customers = new List<Customer>();
-        using (SqlConnection conn = new SqlConnection(_connectionString))
-        {
-            try
-            {
-                var customersSelection = await conn.QueryAsync<Customer>("select * from Customer");
-
-                if (customersSelection != null)
-                {
-                    customers.AddRange(customersSelection);
-                }
-            }
-            catch (SqlException ex)
-            {
-                HandleSqlException(ex);
-            }
-        }
-
-        return customers;
-    }
-
 
     public async Task<IEnumerable<Model.Vehicle>> GetVehiclesAsync()
     {
@@ -75,24 +54,6 @@ public class SqlServerRefDataRepository : IVehicleRepository, ICustomerRepositor
             return null;
         }
     }
-
-    public async Task<Customer> GetCustomerAsync(string customerId)
-    {
-        using (SqlConnection conn = new SqlConnection(_connectionString))
-        {
-            try
-            {
-                return await conn.QueryFirstOrDefaultAsync<Customer>("select * from Customer where CustomerId = @CustomerId",
-                    new { CustomerId = customerId });
-            }
-            catch (SqlException ex)
-            {
-                HandleSqlException(ex);
-            }
-            return null;
-        }
-    }
-
 
     private static void HandleSqlException(SqlException ex)
     {
