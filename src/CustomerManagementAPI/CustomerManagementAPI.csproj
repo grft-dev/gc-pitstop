@@ -13,4 +13,8 @@
     <PackageReference Include="Microsoft.Data.SqlClient" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Graftcode\GraftAsync.cs" Link="Graftcode\GraftAsync.cs" />
+  </ItemGroup>
+
 </Project>

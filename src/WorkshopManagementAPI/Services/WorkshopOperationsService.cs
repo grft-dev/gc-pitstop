@@ -1,5 +1,6 @@
 #nullable enable
 using System.Globalization;
+using Pitstop.Graftcode;
 using Pitstop.WorkshopManagementAPI.Repositories;
 
 namespace Pitstop.WorkshopManagementAPI.Services;
@@ -14,7 +15,7 @@ public static class WorkshopOperationsService
         string city,
         string telephoneNumber,
         string emailAddress) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             await Repository().RegisterCustomerAsync(
                 customerId, name, address, postalCode, city, telephoneNumber, emailAddress);
@@ -22,14 +23,14 @@ public static class WorkshopOperationsService
         });
 
     public static string RegisterVehicle(string licenseNumber, string brand, string type, string ownerId) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             await Repository().RegisterVehicleAsync(licenseNumber, brand, type, ownerId);
             return $"{licenseNumber}|{brand}|{type}|{ownerId}";
         });
 
     public static string RegisterPlanning(string planningDate) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var date = await Repository().RegisterPlanningAsync(planningDate);
             return date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -42,7 +43,7 @@ public static class WorkshopOperationsService
         string startTime,
         string endTime,
         string description) =>
-        Run(async () => FormatJob(await Repository().PlanMaintenanceJobAsync(
+        GraftAsync.Run(async () => FormatJob(await Repository().PlanMaintenanceJobAsync(
             jobId, customerId, licenseNumber, startTime, endTime, description)));
 
     public static string FinishMaintenanceJob(
@@ -50,18 +51,18 @@ public static class WorkshopOperationsService
         string actualStartTime,
         string actualEndTime,
         string notes) =>
-        Run(async () => FormatJob(await Repository().FinishMaintenanceJobAsync(
+        GraftAsync.Run(async () => FormatJob(await Repository().FinishMaintenanceJobAsync(
             jobId, actualStartTime, actualEndTime, notes)));
 
     public static string[] GetPlanningByDate(string planningDate) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var jobs = await Repository().GetPlanningByDateAsync(planningDate);
             return jobs.Select(FormatJob).ToArray();
         });
 
     public static string GetMaintenanceJob(string jobId) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var job = await Repository().GetMaintenanceJobAsync(jobId);
             return job == null ? string.Empty : FormatJob(job);
@@ -69,9 +70,6 @@ public static class WorkshopOperationsService
 
     private static SqlServerWorkshopOperationsRepository Repository() =>
         new(Required("CUSTOMER_MANAGEMENT_CN"), Required("WORKSHOP_MANAGEMENT_CN"));
-
-    private static T Run<T>(Func<Task<T>> func) =>
-        Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
 
     private static string FormatJob(WorkshopJobRow job) =>
         string.Join('|',

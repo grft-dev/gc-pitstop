@@ -1,4 +1,5 @@
 using Pitstop.CustomerManagementAPI.Repositories;
+using Pitstop.Graftcode;
 
 namespace Pitstop.CustomerManagementAPI.Services;
 
@@ -6,7 +7,7 @@ public static class CustomerManagementService
 {
     // Graftcode-facing method replacing GET /api/customers.
     public static string[] GetCustomers() =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var customers = await Repository().GetCustomersAsync();
             return customers.Select(FormatCustomer).ToArray();
@@ -14,14 +15,11 @@ public static class CustomerManagementService
 
     // Graftcode-facing method replacing GET /api/customers/{customerId}.
     public static string GetCustomerById(string customerId) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var customer = await Repository().GetCustomerByIdAsync(customerId);
             return customer == null ? string.Empty : FormatCustomer(customer);
         });
-
-    private static T Run<T>(Func<Task<T>> func) =>
-        Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
 
     private static ICustomerRepository Repository() =>
         new SqlServerCustomerRepository(Required("CUSTOMER_MANAGEMENT_CN"));

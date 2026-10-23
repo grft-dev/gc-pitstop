@@ -1,3 +1,4 @@
+using Pitstop.Graftcode;
 using Pitstop.WorkshopManagementAPI.Repositories;
 
 namespace Pitstop.WorkshopManagementAPI.Services;
@@ -7,7 +8,7 @@ public static class WorkshopRefDataService
     // Graftcode-facing method replacing GET /api/refdata/customers.
     // Keep primitive wire types for stable GG client code generation.
     public static string[] GetCustomers() =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var customers = await CustomerRepository().GetCustomersAsync();
             return customers
@@ -17,7 +18,7 @@ public static class WorkshopRefDataService
 
     // Graftcode-facing method replacing GET /api/refdata/customers/{customerId}.
     public static string GetCustomerById(string customerId) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var customer = await CustomerRepository().GetCustomerByIdAsync(customerId);
             return customer == null
@@ -27,7 +28,7 @@ public static class WorkshopRefDataService
 
     // Graftcode-facing method replacing GET /api/refdata/vehicles.
     public static string[] GetVehicles() =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var vehicles = await VehicleRepository().GetVehiclesAsync();
             return vehicles
@@ -37,16 +38,13 @@ public static class WorkshopRefDataService
 
     // Graftcode-facing method replacing GET /api/refdata/vehicles/{licenseNumber}.
     public static string GetVehicleByLicenseNumber(string licenseNumber) =>
-        Run(async () =>
+        GraftAsync.Run(async () =>
         {
             var vehicle = await VehicleRepository().GetVehicleAsync(licenseNumber);
             return vehicle == null
                 ? string.Empty
                 : $"{vehicle.LicenseNumber}|{vehicle.Brand}|{vehicle.Type}|{vehicle.OwnerId}";
         });
-
-    private static T Run<T>(Func<Task<T>> func) =>
-        Task.Run(func).ConfigureAwait(false).GetAwaiter().GetResult();
 
     private static ICustomerRefDataRepository CustomerRepository() =>
         new SqlServerCustomerRefDataRepository(GetRequiredEnvironmentVariable("CUSTOMER_MANAGEMENT_CN"));
