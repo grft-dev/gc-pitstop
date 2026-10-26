@@ -1,148 +1,76 @@
-﻿namespace Pitstop.WorkshopManagementAPI.Controllers;
+using System.Globalization;
+using Pitstop.Graftcode;
+using Pitstop.WorkshopManagementAPI.Repositories;
 
-[Route("/api/[controller]")]
-public class WorkshopPlanningController : Controller
+namespace Pitstop.WorkshopManagementAPI.Controllers;
+
+public class WorkshopPlanningController
 {
-    private readonly IEventSourceRepository<WorkshopPlanning> _planningRepo;
-    private readonly IPlanMaintenanceJobCommandHandler _planMaintenanceJobCommandHandler;
-    private readonly IFinishMaintenanceJobCommandHandler _finishMaintenanceJobCommandHandler;
+    public static string RegisterPlanning(string planningDate) =>
+        GraftAsync.Run(async () =>
+        {
+            var date = ParseTimestamp(planningDate, nameof(planningDate)).Date;
+            var stored = await Planning().RegisterPlanningAsync(date);
+            return stored.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        });
 
-    public WorkshopPlanningController(
-        IEventSourceRepository<WorkshopPlanning> planningRepo,
-        IPlanMaintenanceJobCommandHandler planMaintenanceJobCommandHandler,
-        IFinishMaintenanceJobCommandHandler finishMaintenanceJobCommand)
+    public static string[] GetPlanningByDate(string planningDate) =>
+        GraftAsync.Run(async () =>
+        {
+            var date = ParseTimestamp(planningDate, nameof(planningDate)).Date;
+            var jobs = await Planning().GetJobsByDateAsync(date);
+            return jobs.Select(FormatJob).ToArray();
+        });
+
+    public static string GetMaintenanceJob(string jobId) =>
+        GraftAsync.Run(async () =>
+        {
+            if (!Guid.TryParse(jobId, out var parsedJobId))
+            {
+                return string.Empty;
+            }
+
+            var job = await Planning().GetJobAsync(parsedJobId);
+            return job == null ? string.Empty : FormatJob(job);
+        });
+
+    private static SqlServerWorkshopPlanningEventSourceRepository Planning() =>
+        new(Required("WORKSHOP_MANAGEMENT_CN"));
+
+    private static string FormatJob(MaintenanceJobRow job) =>
+        string.Join('|',
+            job.Id.ToString("D"),
+            job.CustomerId ?? string.Empty,
+            job.VehicleLicenseNumber ?? string.Empty,
+            FormatTimestamp(job.StartTime),
+            FormatTimestamp(job.EndTime),
+            job.Description ?? string.Empty,
+            job.ActualStartTime == null ? string.Empty : FormatTimestamp(job.ActualStartTime.Value),
+            job.ActualEndTime == null ? string.Empty : FormatTimestamp(job.ActualEndTime.Value),
+            job.Notes ?? string.Empty,
+            job.WorkshopPlanningDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+
+    private static string FormatTimestamp(DateTime value) =>
+        value.ToString("o", CultureInfo.InvariantCulture);
+
+    private static DateTime ParseTimestamp(string value, string name)
     {
-        _planningRepo = planningRepo;
-        _planMaintenanceJobCommandHandler = planMaintenanceJobCommandHandler;
-        _finishMaintenanceJobCommandHandler = finishMaintenanceJobCommand;
+        if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+        {
+            throw new InvalidOperationException($"'{name}' is not a valid timestamp.");
+        }
+
+        return DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified);
     }
 
-    [HttpGet]
-    [Route("{planningDate}", Name = "GetByDate")]
-    public async Task<IActionResult> GetByDate(DateTime planningDate)
+    private static string Required(string key)
     {
-        try
+        var value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
         {
-            var aggregateId = WorkshopPlanningId.Create(planningDate);
-            var planning = await _planningRepo.GetByIdAsync(aggregateId);
-            if (planning == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(planning.MapToDTO());
+            throw new InvalidOperationException($"Missing {key} environment variable.");
         }
-        catch (Exception ex)
-        {
-            Log.Error(ex.ToString());
-            throw;
-        }
-    }
 
-    [HttpGet]
-    [Route("{planningDate}/jobs/{jobId}")]
-    public async Task<IActionResult> GetMaintenanceJobAsync(DateTime planningDate, Guid jobId)
-    {
-        if (ModelState.IsValid)
-        {
-            try
-            {
-                // get planning
-                var aggregateId = WorkshopPlanningId.Create(planningDate);
-                var planning = await _planningRepo.GetByIdAsync(aggregateId);
-                if (planning == null || planning.Jobs == null)
-                {
-                    return NotFound();
-                }
-                // get job
-                var job = planning.Jobs.FirstOrDefault(j => j.Id == jobId);
-                if (job == null)
-                {
-                    return NotFound();
-                }
-                return Ok(job.MapToDTO());
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex.ToString());
-                throw;
-            }
-        }
-        return BadRequest();
-    }
-
-    [HttpPost]
-    [Route("{planningDate}/jobs")]
-    public async Task<IActionResult> PlanMaintenanceJobAsync(DateTime planningDate, [FromBody] PlanMaintenanceJob command)
-    {
-        try
-        {
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    // handle command
-                    WorkshopPlanning planning = await
-                        _planMaintenanceJobCommandHandler.HandleCommandAsync(planningDate, command);
-
-                    // handle result    
-                    if (planning == null)
-                    {
-                        return NotFound();
-                    }
-
-                    // return result
-                    return CreatedAtRoute("GetByDate", new { planningDate = planning.Id }, planning.MapToDTO());
-                }
-                catch (BusinessRuleViolationException ex)
-                {
-                    return StatusCode(StatusCodes.Status409Conflict, new BusinessRuleViolation { ErrorMessage = ex.Message });
-                }
-            }
-            return BadRequest();
-        }
-        catch (ConcurrencyException)
-        {
-            string errorMessage = "Unable to save changes. " +
-                "Try again, and if the problem persists " +
-                "see your system administrator.";
-            Log.Error(errorMessage);
-            ModelState.AddModelError("ErrorMessage", errorMessage);
-            return StatusCode(StatusCodes.Status500InternalServerError);
-        }
-    }
-
-    [HttpPut]
-    [Route("{planningDate}/jobs/{jobId}/finish")]
-    public async Task<IActionResult> FinishMaintenanceJobAsync(DateTime planningDate, Guid jobId, [FromBody] FinishMaintenanceJob command)
-    {
-        try
-        {
-            if (ModelState.IsValid)
-            {
-                // handle command
-                WorkshopPlanning planning = await
-                    _finishMaintenanceJobCommandHandler.HandleCommandAsync(planningDate, command);
-
-                // handle result    
-                if (planning == null)
-                {
-                    return NotFound();
-                }
-
-                // return result
-                return Ok();
-            }
-            return BadRequest();
-        }
-        catch (ConcurrencyException)
-        {
-            string errorMessage = "Unable to save changes. " +
-                "Try again, and if the problem persists " +
-                "see your system administrator.";
-            Log.Error(errorMessage);
-            ModelState.AddModelError("", errorMessage);
-            return StatusCode(StatusCodes.Status500InternalServerError);
-        }
+        return value;
     }
 }

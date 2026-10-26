@@ -5,24 +5,34 @@ public static class WorkshopPlanningRules
     /// <summary>
     /// The maximum number of parallel jobs in the workshop (restricted by the available workstations).
     /// </summary>
-    private const int AVAILABLE_WORKSTATIONS = 3;
+    private const int AvailableWorkstations = 3;
 
     public static void NumberOfParallelMaintenanceJobsMustNotExceedAvailableWorkStations(
-        this WorkshopPlanning planning, PlanMaintenanceJob command)
+        IEnumerable<(DateTime Start, DateTime End)> existingJobs,
+        DateTime start,
+        DateTime end)
     {
-        if (planning.Jobs.Count(j => j.PlannedTimeslot.OverlapsWith(command.StartTime, command.EndTime)) >= AVAILABLE_WORKSTATIONS)
+        var overlaps = existingJobs.Count(job => start < job.End && end > job.Start);
+        if (overlaps >= AvailableWorkstations)
         {
-            throw new BusinessRuleViolationException($"Maintenancejob overlaps with more than {AVAILABLE_WORKSTATIONS} other jobs.");
+            throw new InvalidOperationException(
+                $"Maintenancejob overlaps with more than {AvailableWorkstations} other jobs.");
         }
     }
 
     public static void NumberOfParallelMaintenanceJobsOnAVehicleMustNotExceedOne(
-        this WorkshopPlanning planning, PlanMaintenanceJob command)
+        IEnumerable<(string LicenseNumber, DateTime Start, DateTime End)> existingJobs,
+        string licenseNumber,
+        DateTime start,
+        DateTime end)
     {
-        if (planning.Jobs.Any(j => j.Vehicle.Id == command.VehicleInfo.LicenseNumber &&
-                j.PlannedTimeslot.OverlapsWith(command.StartTime, command.EndTime)))
+        var vehicleAlreadyBooked = existingJobs.Any(job =>
+            string.Equals(job.LicenseNumber, licenseNumber, StringComparison.OrdinalIgnoreCase) &&
+            start < job.End && end > job.Start);
+        if (vehicleAlreadyBooked)
         {
-            throw new BusinessRuleViolationException($"Only 1 maintenance job can be executed on a vehicle during a certain time-slot.");
+            throw new InvalidOperationException(
+                "Only 1 maintenance job can be executed on a vehicle during a certain time-slot.");
         }
     }
 }
