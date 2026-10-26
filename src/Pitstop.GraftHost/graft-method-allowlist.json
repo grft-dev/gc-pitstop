@@ -1,0 +1,52 @@
+{
+  "modules": [
+    "Pitstop.WorkshopManagementAPI.dll",
+    "Pitstop.CustomerManagementAPI.dll",
+    "Pitstop.VehicleManagementAPI.dll"
+  ],
+  "types": [
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.Controllers.RefDataController",
+      "methods": [
+        "GetCustomers",
+        "GetCustomerById",
+        "GetVehicles",
+        "GetVehicleByLicenseNumber"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.Application.CustomerManagementAPI.Controllers.CustomersController",
+      "methods": [
+        "GetCustomers",
+        "GetCustomerById",
+        "RegisterCustomer"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.VehicleManagement.Controllers.VehiclesController",
+      "methods": [
+        "RegisterVehicle"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.Controllers.WorkshopPlanningController",
+      "methods": [
+        "RegisterPlanning",
+        "GetPlanningByDate",
+        "GetMaintenanceJob"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.CommandHandlers.PlanMaintenanceJobCommandHandler",
+      "methods": [
+        "PlanMaintenanceJob"
+      ]
+    },
+    {
+      "publicApiType": "Pitstop.WorkshopManagementAPI.CommandHandlers.FinishMaintenanceJobCommandHandler",
+      "methods": [
+        "FinishMaintenanceJob"
+      ]
+    }
+  ]
+}

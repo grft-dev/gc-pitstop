@@ -1,41 +1,117 @@
+using System.Globalization;
+using Pitstop.Graftcode;
+using Pitstop.WorkshopManagementAPI.Domain.BusinessRules;
+using Pitstop.WorkshopManagementAPI.Repositories;
+
 namespace Pitstop.WorkshopManagementAPI.CommandHandlers;
 
-public class PlanMaintenanceJobCommandHandler : IPlanMaintenanceJobCommandHandler
+public class PlanMaintenanceJobCommandHandler
 {
-    IMessagePublisher _messagePublisher;
-    IEventSourceRepository<WorkshopPlanning> _planningRepo;
+    public static string PlanMaintenanceJob(
+        string jobId,
+        string customerId,
+        string licenseNumber,
+        string startTime,
+        string endTime,
+        string description) =>
+        GraftAsync.Run(async () =>
+        {
+            Require(jobId, nameof(jobId));
+            Require(customerId, nameof(customerId));
+            Require(licenseNumber, nameof(licenseNumber));
+            var start = ParseTimestamp(startTime, nameof(startTime));
+            var end = ParseTimestamp(endTime, nameof(endTime));
+            MaintenanceJobRules.PlannedMaintenanceJobShouldFallWithinOneBusinessDay(start, end);
+            if (!Guid.TryParse(jobId, out var parsedJobId))
+            {
+                throw new InvalidOperationException($"'{nameof(jobId)}' is not a valid identifier.");
+            }
 
-    public PlanMaintenanceJobCommandHandler(IMessagePublisher messagePublisher, IEventSourceRepository<WorkshopPlanning> planningRepo)
+            var customer = await RefData().GetCustomerAsync(customerId);
+            if (customer == null)
+            {
+                throw new InvalidOperationException($"Customer '{customerId}' was not found.");
+            }
+
+            var vehicle = await RefData().GetVehicleAsync(licenseNumber);
+            if (vehicle == null)
+            {
+                throw new InvalidOperationException($"Vehicle '{licenseNumber}' was not found.");
+            }
+
+            var existing = await Planning().GetJobsByDateAsync(start.Date);
+            WorkshopPlanningRules.NumberOfParallelMaintenanceJobsOnAVehicleMustNotExceedOne(
+                existing.Select(job => (LicenseNumber: job.VehicleLicenseNumber, Start: job.StartTime, End: job.EndTime)),
+                licenseNumber,
+                start,
+                end);
+            WorkshopPlanningRules.NumberOfParallelMaintenanceJobsMustNotExceedAvailableWorkStations(
+                existing.Select(job => (Start: job.StartTime, End: job.EndTime)),
+                start,
+                end);
+
+            var planned = new MaintenanceJobRow
+            {
+                Id = parsedJobId,
+                CustomerId = customerId,
+                VehicleLicenseNumber = licenseNumber,
+                StartTime = start,
+                EndTime = end,
+                Description = description,
+                WorkshopPlanningDate = start.Date
+            };
+            await Planning().InsertJobAsync(planned);
+            return FormatJob(planned);
+        });
+
+    private static SqlServerRefDataRepository RefData() =>
+        new(Required("CUSTOMER_MANAGEMENT_CN"), Required("WORKSHOP_MANAGEMENT_CN"));
+
+    private static SqlServerWorkshopPlanningEventSourceRepository Planning() =>
+        new(Required("WORKSHOP_MANAGEMENT_CN"));
+
+    private static string FormatJob(MaintenanceJobRow job) =>
+        string.Join('|',
+            job.Id.ToString("D"),
+            job.CustomerId ?? string.Empty,
+            job.VehicleLicenseNumber ?? string.Empty,
+            FormatTimestamp(job.StartTime),
+            FormatTimestamp(job.EndTime),
+            job.Description ?? string.Empty,
+            job.ActualStartTime == null ? string.Empty : FormatTimestamp(job.ActualStartTime.Value),
+            job.ActualEndTime == null ? string.Empty : FormatTimestamp(job.ActualEndTime.Value),
+            job.Notes ?? string.Empty,
+            job.WorkshopPlanningDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+
+    private static string FormatTimestamp(DateTime value) =>
+        value.ToString("o", CultureInfo.InvariantCulture);
+
+    private static DateTime ParseTimestamp(string value, string name)
     {
-        _messagePublisher = messagePublisher;
-        _planningRepo = planningRepo;
+        if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+        {
+            throw new InvalidOperationException($"'{name}' is not a valid timestamp.");
+        }
+
+        return DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified);
     }
 
-    public async Task<WorkshopPlanning> HandleCommandAsync(DateTime planningDate, PlanMaintenanceJob command)
+    private static string Required(string key)
     {
-        // get or create workshop-planning
-        var aggregateId = WorkshopPlanningId.Create(planningDate);
-        var planning = await _planningRepo.GetByIdAsync(aggregateId);
-        if (planning == null)
+        var value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
         {
-            planning = WorkshopPlanning.Create(planningDate);
+            throw new InvalidOperationException($"Missing {key} environment variable.");
         }
 
-        // handle command
-        planning.PlanMaintenanceJob(command);
+        return value;
+    }
 
-        // persist
-        IEnumerable<Event> events = planning.GetEvents();
-        await _planningRepo.SaveAsync(
-            planning.Id, planning.OriginalVersion, planning.Version, events);
-
-        // publish event
-        foreach (var e in events)
+    private static void Require(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
-            await _messagePublisher.PublishMessageAsync(e.MessageType, e, "");
+            throw new InvalidOperationException($"'{name}' is required.");
         }
-
-        // return result
-        return planning;
     }
 }

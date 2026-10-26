@@ -1,52 +1,57 @@
-﻿namespace Pitstop.WorkshopManagementAPI.Controllers;
+using Pitstop.Graftcode;
+using Pitstop.WorkshopManagementAPI.Repositories;
 
-[Route("/api/[controller]")]
-public class RefDataController : Controller
+namespace Pitstop.WorkshopManagementAPI.Controllers;
+
+public class RefDataController
 {
-    ICustomerRepository _customerRepo;
-    IVehicleRepository _vehicleRepo;
-
-    public RefDataController(ICustomerRepository customerRepo, IVehicleRepository vehicleRepo)
-    {
-        _customerRepo = customerRepo;
-        _vehicleRepo = vehicleRepo;
-    }
-
-    [HttpGet]
-    [Route("customers")]
-    public async Task<IActionResult> GetCustomers()
-    {
-        return Ok(await _customerRepo.GetCustomersAsync());
-    }
-
-    [HttpGet]
-    [Route("customers/{customerId}")]
-    public async Task<IActionResult> GetCustomerByCustomerId(string customerId)
-    {
-        var customer = await _customerRepo.GetCustomerAsync(customerId);
-        if (customer == null)
+    public static string[] GetCustomers() =>
+        GraftAsync.Run(async () =>
         {
-            return NotFound();
-        }
-        return Ok(customer);
-    }
+            var customers = await Repository().GetCustomersAsync();
+            return customers
+                .Select(c => $"{c.CustomerId}|{c.Name}|{c.TelephoneNumber}")
+                .ToArray();
+        });
 
-    [HttpGet]
-    [Route("vehicles")]
-    public async Task<IActionResult> GetVehicles()
-    {
-        return Ok(await _vehicleRepo.GetVehiclesAsync());
-    }
-
-    [HttpGet]
-    [Route("vehicles/{licenseNumber}")]
-    public async Task<IActionResult> GetVehicleByLicenseNumber(string licenseNumber)
-    {
-        var vehicle = await _vehicleRepo.GetVehicleAsync(licenseNumber);
-        if (vehicle == null)
+    public static string GetCustomerById(string customerId) =>
+        GraftAsync.Run(async () =>
         {
-            return NotFound();
+            var customer = await Repository().GetCustomerAsync(customerId);
+            return customer == null
+                ? string.Empty
+                : $"{customer.CustomerId}|{customer.Name}|{customer.TelephoneNumber}";
+        });
+
+    public static string[] GetVehicles() =>
+        GraftAsync.Run(async () =>
+        {
+            var vehicles = await Repository().GetVehiclesAsync();
+            return vehicles
+                .Select(v => $"{v.LicenseNumber}|{v.Brand}|{v.Type}|{v.OwnerId}")
+                .ToArray();
+        });
+
+    public static string GetVehicleByLicenseNumber(string licenseNumber) =>
+        GraftAsync.Run(async () =>
+        {
+            var vehicle = await Repository().GetVehicleAsync(licenseNumber);
+            return vehicle == null
+                ? string.Empty
+                : $"{vehicle.LicenseNumber}|{vehicle.Brand}|{vehicle.Type}|{vehicle.OwnerId}";
+        });
+
+    private static SqlServerRefDataRepository Repository() =>
+        new(Required("CUSTOMER_MANAGEMENT_CN"), Required("WORKSHOP_MANAGEMENT_CN"));
+
+    private static string Required(string key)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"Missing {key} environment variable.");
         }
-        return Ok(vehicle);
+
+        return value;
     }
 }

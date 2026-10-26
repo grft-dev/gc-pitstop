@@ -2,19 +2,20 @@ namespace Pitstop.WorkshopManagementAPI.Domain.BusinessRules;
 
 public static class MaintenanceJobRules
 {
-    public static void PlannedMaintenanceJobShouldFallWithinOneBusinessDay(this PlanMaintenanceJob command)
+    public static void PlannedMaintenanceJobShouldFallWithinOneBusinessDay(DateTime start, DateTime end)
     {
-        if (!Timeslot.Create(command.StartTime, command.EndTime).IsWithinOneDay())
+        if (end <= start || start.Date != end.Date)
         {
-            throw new BusinessRuleViolationException("Start-time and end-time of a Maintenance Job must be within a 1 day.");
+            throw new InvalidOperationException(
+                "Start-time and end-time of a Maintenance Job must be within a 1 day.");
         }
     }
 
-    public static void FinishedMaintenanceJobCanNotBeFinished(this MaintenanceJob job)
+    public static void FinishedMaintenanceJobCanNotBeFinished(bool alreadyFinished)
     {
-        if (job.Status == "Completed")
+        if (alreadyFinished)
         {
-            throw new BusinessRuleViolationException($"An already finished job can not be finished.");
+            throw new InvalidOperationException("An already finished job can not be finished.");
         }
     }
 }

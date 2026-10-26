@@ -1,69 +1,60 @@
-﻿namespace Pitstop.VehicleManagement.Controllers;
+﻿using System.Text.RegularExpressions;
+using Dapper;
+using Microsoft.Data.SqlClient;
+using Pitstop.Graftcode;
 
-[Route("/api/[controller]")]
-public class VehiclesController : Controller
+namespace Pitstop.VehicleManagement.Controllers;
+
+public class VehiclesController
 {
-    private const string NUMBER_PATTERN = @"^((\d{1,3}|[a-z]{1,3})-){2}(\d{1,3}|[a-z]{1,3})$";
-    IMessagePublisher _messagePublisher;
-    VehicleManagementDBContext _dbContext;
+    private const string NumberPattern = @"^((\d{1,3}|[a-z]{1,3})-){2}(\d{1,3}|[a-z]{1,3})$";
 
-    public VehiclesController(VehicleManagementDBContext dbContext, IMessagePublisher messagePublisher)
-    {
-        _dbContext = dbContext;
-        _messagePublisher = messagePublisher;
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetAllAsync()
-    {
-        return Ok(await _dbContext.Vehicles.ToListAsync());
-    }
-
-    [HttpGet]
-    [Route("{licenseNumber}", Name = "GetByLicenseNumber")]
-    public async Task<IActionResult> GetByLicenseNumber(string licenseNumber)
-    {
-        var vehicle = await _dbContext.Vehicles.FirstOrDefaultAsync(v => v.LicenseNumber == licenseNumber);
-        if (vehicle == null)
+    public static string RegisterVehicle(string licenseNumber, string brand, string type, string ownerId) =>
+        GraftAsync.Run(async () =>
         {
-            return NotFound();
-        }
-        return Ok(vehicle);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> RegisterAsync([FromBody] RegisterVehicle command)
-    {
-        try
-        {
-            if (ModelState.IsValid)
+            Require(licenseNumber, nameof(licenseNumber));
+            Require(ownerId, nameof(ownerId));
+            if (!Regex.IsMatch(licenseNumber, NumberPattern, RegexOptions.IgnoreCase))
             {
-                // check invariants
-                if (!Regex.IsMatch(command.LicenseNumber, NUMBER_PATTERN, RegexOptions.IgnoreCase))
-                {
-                    return BadRequest($"The specified license-number '{command.LicenseNumber}' was not in the correct format.");
-                }
-
-                // insert vehicle
-                Vehicle vehicle = command.MapToVehicle();
-                _dbContext.Vehicles.Add(vehicle);
-                await _dbContext.SaveChangesAsync();
-
-                // send event
-                var e = VehicleRegistered.FromCommand(command);
-                await _messagePublisher.PublishMessageAsync(e.MessageType, e, "");
-
-                //return result
-                return CreatedAtRoute("GetByLicenseNumber", new { licenseNumber = vehicle.LicenseNumber }, vehicle);
+                throw new InvalidOperationException(
+                    $"The specified license-number '{licenseNumber}' was not in the correct format.");
             }
-            return BadRequest();
-        }
-        catch (DbUpdateException)
+
+            if (!await OwnerExistsAsync(ownerId))
+            {
+                throw new InvalidOperationException($"Customer '{ownerId}' was not found.");
+            }
+
+            await new VehicleManagementDBContext(Required("WORKSHOP_MANAGEMENT_CN"))
+                .RegisterVehicleAsync(licenseNumber, brand, type, ownerId);
+            return $"{licenseNumber}|{brand}|{type}|{ownerId}";
+        });
+
+    private static async Task<bool> OwnerExistsAsync(string ownerId)
+    {
+        using var conn = new SqlConnection(Required("CUSTOMER_MANAGEMENT_CN"));
+        var owner = await conn.QueryFirstOrDefaultAsync<string>(
+            "select CustomerId from Customer where CustomerId = @CustomerId",
+            new { CustomerId = ownerId });
+        return owner != null;
+    }
+
+    private static string Required(string key)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
         {
-            ModelState.AddModelError("", "Unable to save changes. " +
-                "Try again, and if the problem persists " +
-                "see your system administrator.");
-            return StatusCode(StatusCodes.Status500InternalServerError);
+            throw new InvalidOperationException($"Missing {key} environment variable.");
+        }
+
+        return value;
+    }
+
+    private static void Require(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"'{name}' is required.");
         }
     }
 }

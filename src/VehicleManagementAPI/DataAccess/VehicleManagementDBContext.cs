@@ -1,25 +1,27 @@
-﻿namespace Pitstop.VehicleManagement.DataAccess;
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
 
-public class VehicleManagementDBContext : DbContext
+namespace Pitstop.VehicleManagement.DataAccess;
+
+// Ref data reads WorkshopManagement.Vehicle. The event-handler projection is not on the graft,
+// so this context writes that table through WORKSHOP_MANAGEMENT_CN.
+public class VehicleManagementDBContext
 {
-    public VehicleManagementDBContext(DbContextOptions<VehicleManagementDBContext> options) : base(options)
+    private readonly string _connectionString;
+
+    public VehicleManagementDBContext(string connectionString)
     {
+        _connectionString = connectionString;
     }
 
-    public DbSet<Vehicle> Vehicles { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder builder)
+    public async Task RegisterVehicleAsync(string licenseNumber, string brand, string type, string ownerId)
     {
-        builder.Entity<Vehicle>().HasKey(m => m.LicenseNumber);
-        builder.Entity<Vehicle>().ToTable("Vehicle");
-        base.OnModelCreating(builder);
-    }
-
-    public void MigrateDB()
-    {
-        Policy
-            .Handle<Exception>()
-            .WaitAndRetry(10, r => TimeSpan.FromSeconds(10))
-            .Execute(() => Database.Migrate());
+        using var conn = new SqlConnection(_connectionString);
+        await conn.ExecuteAsync(
+            """
+            insert into Vehicle (LicenseNumber, Brand, [Type], OwnerId)
+            values (@LicenseNumber, @Brand, @Type, @OwnerId)
+            """,
+            new { LicenseNumber = licenseNumber, Brand = brand, Type = type, OwnerId = ownerId });
     }
 }
